@@ -1,0 +1,21 @@
+{
+  "name": "imgesToPdf",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "zip": "bestzip imagesToPdf.zip './index.js' './node_modules' './defaultParams.json' './package.json' './getS3Files.js'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.6.13",
+    "bestzip": "^1.1.3",
+    "file-type": "^3.9.0",
+    "imagemagick": "^0.1.3",
+    "read-chunk": "^2.0.0",
+    "uid2": "0.0.3"
+  }
+}

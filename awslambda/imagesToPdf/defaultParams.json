@@ -1,0 +1,7 @@
+{
+  "ext": ".pdf",
+  "upload": {
+    "Bucket": "konfiobucket",
+    "Key": "wp/fromImage.pdf"
+  }
+}

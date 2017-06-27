@@ -1,0 +1,16 @@
+{
+  "upload": {
+    "Bucket": "clientsbucket-backup-dev",
+    "Key": "IAMG891226HDFBRS06/verification/ife_test.pdf"
+  },
+  "files": [
+    {
+      "Bucket": "processdocumentsdev",
+      "Key": "133077/23/1"
+    },
+    {
+      "Bucket": "processdocumentsdev",
+      "Key": "133077/23/2"
+    }
+  ]
+}
