@@ -1,0 +1,26 @@
+{
+    "name": "netpoe/php-files-upload",
+    "description": "documents-upload-with-dropzonejs-and-s3-presigned-requests",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Gustavo Ibarra",
+            "email": "yo@soygus.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=7.0.0",
+        "aws/aws-sdk-php": "3.*.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "KonfioSdk\\": "src/",
+            "KonfioSdk\\Test\\": "tests/",
+            "KonfioSdk\\Migrations\\": "migrations/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.6"
+    }
+}

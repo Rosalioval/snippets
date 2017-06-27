@@ -1,0 +1,634 @@
+<?php
+  $this->layout()->setVariable('pageTitle', 'Sube tus documentos | Konfío');
+  $this->layout()->setVariable('metaDescription', 'Es el último paso en la solicitud de crédito de Konfío');
+
+  $assetUrl = $this->load_css_cache_busted_asset('documents.css');
+  $this->headLink()->appendStylesheet($assetUrl);
+?>
+
+<?php if (!$documents) : ?>
+  <section class="section">
+    <header class="section-header">
+      <div class="container">
+        <h1>No hay documentos que mostrar.</h1>
+        <h4>Completa tu solicitud para subir tus documentos.</h4>
+      </div>
+    </header>
+    <div class="section-content"></div>
+  </section>
+<?php else : ?>
+  <section class="section">
+    <div id="doc-example-modal" class="modal">
+      <div class="doc-example-wrapper">
+        <div class="doc-example-preview"></div>
+        <nav class="actions">
+          <button
+            class="btn btn-white btn-outline"
+            onclick="return closeExampleModal(this)">Cerrar <i class="icon-cross-circle"></i>
+          </button>
+        </nav>
+      </div>
+    </div>
+    <div id="confirm-document-modal" class="modal">
+      <div class="dropzone-previews document-confirm-wrapper">
+        <div class="slider-prev" onclick="return prevSlide()"></div>
+        <div class="slider-next" onclick="return nextSlide()"></div>
+        <div class="document-confirm"></div>
+        <div class="ebm-alert ebm-alert-danger">
+          <div class="alert-left"><i class="icon-notification-circle"></i></div>
+          <div class="alert-right">
+            <div class="alert-content">
+              <h5 class="message"></h5>
+              <nav>
+                <button class="btn btn-info" onclick="return cancelFileQueue()">Entendido</button>
+              </nav>
+            </div>
+          </div>
+        </div>
+        <div class="actions-wrapper">
+          <h5 class="cta">Asegúrate que se vea bien</h5>
+          <nav>
+            <button class="btn btn-outline btn-white" onclick="return unqueueFiles()">Borrar</button>
+            <button class="btn btn-info" onclick="return displayFileQueue()">Aceptar</button>
+          </nav>
+        </div>
+      </div>
+    </div>
+    <header class="section-header">
+      <div class="container-md text-center">
+        <h1><?= $this->layout()->userName ?> recuerda que puedes subir fotos o PDFs</h1>
+        <h4>Antes de subirlos asegúrate que se alcanzan a leer bien y que se vea el documento completo</h4>
+      </div>
+    </header>
+    <div class="section-content">
+      <div class="container-md">
+        <?php foreach ($documents as $index => $document) : ?>
+          <?php $id = $document['key']; ?>
+          <article class="document <?= $getState($document) ?>" id="document-<?= $id ?>">
+            <h5 class="name"><?= $document['label'] ?></h5>
+            <p class="description">
+              <span class="text"><?= $document['fileDescription'] ?></span>.&nbsp;
+              <?php if ($getExample($document) != '') : ?>
+                <span class="doc-example" data-example-src="<?= $getExample($document) ?>">Ver ejemplo</span>
+              <?php endif ?>
+            </p>
+            <div class="rejection-reason">
+              <p>Tenemos un problema con este documento:<br>
+                <strong class="text"><?= $document['rejectionReason'] ?></strong>
+              </p>
+            </div>
+            <ul class="file-progress grid-list grid-list-5 grid-list-2-xs grid-list-3-sm"></ul>
+            <form
+              method="POST"
+              enctype="multipart/form-data"
+              action="<?= $this->url('documents', ['action' => 'subir']) ?>"
+              class="dropzone"
+              id="documents-upload-<?= $id ?>"></form>
+          </article>
+        <?php endforeach ?>
+      </div>
+    </div>
+    <footer class="section-footer">
+      <div class="container">
+        <nav>
+          <button onclick="return processFilesQueue(this)" class="btn btn-info upload-btn">Continuar</button>
+        </nav>
+      </div>
+    </footer>
+  </section>
+
+  <?php if ($isAndroid) : ?>
+    <?= $this->partial('uiv2/user/partials/android-app-install-banner.phtml'); ?>
+  <?php endif; ?>
+
+  <?php $this->headScript()->appendFile($this->basePath() . '/js/third-party/dropzonejs/dropzone.js'); ?>
+  <?php $this->headScript()->appendFile($this->basePath() . '/js/third-party/axiosjs/axios.min.js'); ?>
+  <script>
+    <?php $this->headScript()->captureStart(); ?>
+      var currentDocumentIndex = 0;
+      var currentDropzoneIndex = -1;
+      var maxFilesize = 1500;
+      var dropzones = [];
+      var defaultMessage = 'Arrastra tus archivos o <button type="button" class="btn btn-info btn-sm btn-outline">selecciona archivos</button>';
+      var uploadBtn = document.querySelector('.upload-btn');
+      var slidePrev = document.querySelector('.slider-prev');
+      var slideNext = document.querySelector('.slider-next');
+
+      var $_statusPending = '<?= \Solicitud\Controller\DocumentsController::STATUS_PENDING ?>';
+      var $_statusApproved = '<?= \Solicitud\Controller\DocumentsController::STATUS_APPROVED ?>';
+      var $_statusDenied = '<?= \Solicitud\Controller\DocumentsController::STATUS_DENIED ?>';
+
+      (function(global){
+        var DZ = function(){
+          this.postUrl = "<?= $this->url('documents', ['action' => 'subir']) ?>";
+          this.modal = document.getElementById('confirm-document-modal');
+          this.docConfirm = document.querySelector('.document-confirm');
+          this.actionsWrapper = document.querySelector('.actions-wrapper');
+          this.alert = document.querySelector('.ebm-alert');
+          this.alertMessage = document.querySelector('.ebm-alert .message');
+          this.dropzone = null;
+          this.document = null;
+          this.dropzoneForm = null;
+          this.fileProgress = null;
+          this.fileURLs = [];
+          this.currentSlideIndex = 1;
+          this.currentFileIndex = 0;
+        }
+
+        DZ.prototype = {
+          getParent: function(e){
+            var el = e.target;
+            var parent = el.closest('.dropzone');
+
+            return parent;
+          },
+          onDragEnter: function(e){
+            $dz = this;
+
+            var parent = $dz.getParent(e);
+            parent.classList.add('on-drag-enter');
+          },
+          onDragEnd: function(e){
+            $dz = this;
+
+            var parent = $dz.getParent(e);
+            parent.classList.add('on-drag-end');
+            parent.classList.remove('on-drag-enter');
+          },
+          reset: function(){
+            $dz = this;
+
+            var slides = $dz.docConfirm.querySelectorAll('.slide');
+            if (slides) {
+              slides.forEach(function(slide){
+                slide.remove();
+              });
+            }
+
+            $dz.fileURLs = [];
+
+            $dz.modal.style.display = 'none';
+
+            $dz.alert.style.display = 'none';
+
+            $dz.docConfirm.style.display = 'block';
+
+            $dz.actionsWrapper.style.display = 'block';
+
+            slidePrev.style.display = 'flex';
+
+            slideNext.style.display = 'flex';
+          },
+          onAddFile: function(file, dropzone, index){
+            $dz = this;
+
+            currentDocumentIndex = index;
+
+            var fileId = 'file-' + currentDocumentIndex.toString() + '_' + $dz.currentFileIndex.toString();
+
+            file.fileId = fileId;
+
+            $dz.currentFileIndex++;
+
+            $dz.reset();
+
+            var reader = new FileReader;
+
+            reader.readAsDataURL(file);
+
+            reader.onload = function(){
+              var dataURL = reader.result;
+              var filePreviewElement = $dz.getFilePreviewElement(file, dataURL);
+              $dz.fileURLs.push({
+                'filePreviewElement': filePreviewElement,
+                'dataURL': dataURL,
+                'fileId': fileId,
+                'currentDocumentIndex': currentDocumentIndex,
+              });
+              $dz.loadFileSlider(filePreviewElement);
+            }
+          },
+          fileIsPdf: function(file){
+            return file.type == 'application/pdf';
+          },
+          getFilePreviewElement: function(file, dataURL){
+            var $dz = this;
+
+            if ($dz.fileIsPdf(file)) {
+              var previewOn = document.createElement('i');
+              previewOn.classList.add('icon-document-file-pdf');
+            } else {
+              var previewOn = document.createElement('img');
+              previewOn.src = dataURL;
+            }
+
+            return previewOn;
+          },
+          loadFileSlider: function(filePreviewElement){
+            var $dz = this;
+
+            var slide = document.createElement('div');
+
+            slide.classList = 'slide slide-' + $dz.currentSlideIndex;
+
+            $dz.currentSlideIndex++;
+
+            slide.append(filePreviewElement);
+
+            $dz.docConfirm.append(slide);
+
+            document.querySelector('.slide-1')
+                    .classList.add('current');
+
+            $dz.modal.style.display = 'block';
+
+            $dz.actionsWrapper.style.visibility = 'visible';
+          },
+          onSend: function(file, xhr, formData){
+            var $dz = this;
+
+          },
+          updateFileStatus: function(status, doc){
+            $dz = this;
+
+            var parent = $dz.document;
+
+            parent.classList = 'document';
+
+            if (status == $_statusPending) {
+              parent.classList.add('is-pending');
+              return;
+            }
+
+            if (status == $_statusApproved) {
+              parent.classList.add('is-approved');
+              return;
+            }
+
+            if (status == $_statusDenied) {
+              parent.classList.add('is-denied');
+
+              if (doc) {
+                $dz.document
+                  .querySelector('.rejection-reason .text')
+                  .innerText = doc.rejectionReason;
+              }
+            }
+
+            $dz.document
+              .querySelector('.dropzone')
+              .style.display = 'block';
+
+            uploadBtn.style.display = 'inline-block';
+            uploadBtn.disabled = false;
+            uploadBtn.innerText = 'Continuar';
+
+            return;
+          },
+          unqueueFiles: function(){
+            $dz = this;
+
+            $dz.currentSlideIndex = 1;
+
+            var files = $dz.dropzone.getQueuedFiles();
+
+            $dz.fileURLs.forEach(function(url){
+              files.forEach(function(file){
+                if (file.fileId == url.fileId) {
+                  $dz.dropzone.removeFile(file);
+                }
+              });
+            });
+
+            $dz.reset();
+          },
+          cancelFileQueue: function(){
+            $dz = this;
+
+            $dz.currentSlideIndex = 1;
+
+            $dz.reset();
+
+            var files = $dz.dropzone.getQueuedFiles();
+
+            files.forEach(function(file){
+              $dz.dropzone.removeFile(file);
+            });
+          },
+          displayFileQueue: function(){
+            $dz = this;
+
+            $dz.currentSlideIndex = 1;
+
+            $dz.modal.style.display = 'none';
+
+            $dz.alert.style.display = 'none';
+
+            $dz.displayFileProgress();
+          },
+          displayFileProgress: function(){
+            $dz = this;
+
+            $dz.fileProgress = $dz.document.querySelector('.file-progress');
+
+            $dz.fileURLs.forEach(function(data){
+              var previewTempl = '<li class="preview ' + data.fileId + '">' +
+                                    '<div>' +
+                                      '<div class="remove-file"' +
+                                        'onclick="return removeFile(\'' + data.fileId + '\',' + data.currentDocumentIndex + ')">' +
+                                        '<i class="icon-cross-circle"></i>' +
+                                      '</div>' +
+                                      '<div class="preview-loader">' +
+                                        '<i class="icon-loading load" style="display: none;"></i>' +
+                                      '</div>' +
+                                      data.filePreviewElement.outerHTML +
+                                    '</div>' +
+                                  '</li>';
+
+              $dz.fileProgress.insertAdjacentHTML('beforeend', previewTempl);
+            });
+
+            $dz.fileProgress.style.display = 'block';
+          },
+          processQueue: function(){
+            var $dz = this;
+
+            if ($dz.dropzone.getQueuedFiles().length == 0) {
+              return processFilesQueue();
+            }
+
+            $dz.dropzone.processQueue();
+
+            $dz.fileProgress
+              .querySelectorAll('.icon-loading')
+              .forEach(function(icon){
+                icon.style.display = 'block';
+              });
+
+            $dz.fileProgress
+              .querySelectorAll('.remove-file')
+              .forEach(function(div){
+                div.style.display = 'none';
+              });
+
+            document
+              .querySelectorAll('.dropzone')
+              .forEach(function(dz){
+                dz.style.display = 'none';
+              });
+          },
+          onComplete: function(file, response){
+            $dz = this;
+
+
+            $dz.updateFileStatus($_statusPending);
+
+            $dz.modal.style.display = 'none';
+
+            $dz.fileProgress.style.display = 'none';
+          },
+          onError: function(file, error, response){
+            $dz = this;
+
+            if (error == 'invalidfiletype') {
+              return $dz.displayError('No es un formato válido. Los formatos válidos son .png, .jpg, .jpeg y .pdf');
+            }
+
+            if (error == 'filetoobig') {
+              return $dz.displayError('Uno de tus documentos es muy grande, no debe exceder los ' + maxFilesize.toString() + 'kb.');
+            }
+
+            return $dz.displayError(error.error);
+          },
+          displayError: function(message){
+            $dz = this;
+
+            $dz.docConfirm.style.display = 'none';
+
+            $dz.actionsWrapper.style.display = 'none';
+
+            $dz.alert.style.display = 'block';
+
+            $dz.alertMessage.innerText = message;
+
+            slidePrev.style.display = 'none';
+
+            slideNext.style.display = 'none';
+
+            $dz.modal.style.display = 'block';
+          },
+          prevSlide: function(){
+            var $dz = this;
+
+            var currSlide = document.querySelector('.slide.current');
+
+            var prev = currSlide.previousElementSibling;
+
+            if (prev) {
+              currSlide.classList.remove('current');
+              prev.classList.add('current');
+            }
+          },
+          nextSlide: function(){
+            var $dz = this;
+
+            var currSlide = document.querySelector('.slide.current');
+
+            var next = currSlide.nextElementSibling;
+
+            if (next) {
+              currSlide.classList.remove('current');
+              next.classList.add('current');
+            }
+          },
+          removeFile: function(fileId){
+            var $dz = this;
+
+            var files = $dz.dropzone.getQueuedFiles();
+
+            $dz.dropzone.removeFile(files.filter(function(file){
+              return file.fileId == fileId;
+            })[0]);
+
+            var files = $dz.dropzone.getQueuedFiles();
+
+            document.querySelector('.' + fileId).remove();
+          }
+        };
+
+        global.cancelFileQueue = function(){
+          var dz = eval('$dz' + currentDocumentIndex);
+          dz.cancelFileQueue();
+        }
+        global.unqueueFiles = function(){
+          var dz = eval('$dz' + currentDocumentIndex);
+          dz.unqueueFiles();
+        }
+        global.displayFileQueue = function(){
+          var dz = eval('$dz' + currentDocumentIndex);
+          dz.displayFileQueue();
+        }
+        global.prevSlide = function(){
+          var dz = eval('$dz' + currentDocumentIndex);
+          dz.prevSlide();
+        }
+        global.nextSlide = function(){
+          var dz = eval('$dz' + currentDocumentIndex);
+          dz.nextSlide();
+        }
+        global.removeFile = function(fileId, $currentDocumentIndex){
+          var dz = eval('$dz' + $currentDocumentIndex);
+          dz.removeFile(fileId);
+        }
+
+        global.processFilesQueue = function(){
+          uploadBtn.innerText = 'Subiendo';
+
+          uploadBtn.disabled = true;
+
+          currentDropzoneIndex++;
+
+          if (dropzones[currentDropzoneIndex]) {
+            return dropzones[currentDropzoneIndex].processQueue();
+          }
+
+          currentDropzoneIndex = -1;
+
+          document
+            .querySelector('.upload-btn')
+            .innerText = '¡Listo!';
+
+          document
+            .querySelectorAll('.preview')
+            .forEach(function(el){
+              el.remove();
+            });
+
+          return updateDocumentsStatus();
+        }
+
+        <?php foreach ($documents as $index => $document) : ?>
+          <?php $id = $document['key']; ?>
+
+          var $dz<?= $id ?> = new DZ;
+
+          $dz<?= $id ?>.document = document.getElementById('document-' + <?= $id ?>);
+
+          $dz<?= $id ?>.dropzoneForm = document.getElementById('documents-upload-' + <?= $id ?>);
+
+          dropzones.push($dz<?= $id ?>);
+
+          Dropzone.options.documentsUpload<?= $id ?> = {
+            dictDefaultMessage: defaultMessage,
+            dictFileTooBig: 'filetoobig',
+            dictInvalidFileType: 'invalidfiletype',
+            paramName: <?= $id ?>,
+            acceptedFiles: 'image/png,image/jpg,image/jpeg,application/pdf',
+            autoProcessQueue: false,
+            previewsContainer: '.document-confirm',
+            params: {
+              documentId: <?= $id ?>
+            },
+            headers: {
+              "Access-Control-Allow-Origin": '*',
+            },
+            uploadMultiple: true,
+            maxFilesize: maxFilesize,
+            parallelUploads: 100,
+            timeout: 60000,
+
+            // resizing params
+            resizeWidth: 1024,
+            resizeHeight: null,
+
+            init: function(){
+              $dz<?= $id ?>.dropzone = this;
+            },
+            addedfile: function(file){
+              $dz<?= $id ?>.onAddFile(file, this, <?= $id ?>);
+            },
+            drop: function(event){
+              $dz<?= $id ?>.onDragEnd(event);
+            },
+            dragenter: function(event){
+              $dz<?= $id ?>.onDragEnter(event);
+            },
+            dragover: function(event){
+              $dz<?= $id ?>.onDragEnter(event);
+            },
+            success: function(file, response){
+              $dz<?= $id ?>.onComplete(file, response);
+            },
+            sendingmultiple: function(data, xhr, formData){
+            },
+            error: function(file, error, response){
+              console.log(file, error, response);
+              $dz<?= $id ?>.onError(file, error, response);
+            },
+            queuecomplete: function(){
+              if (dropzones[currentDropzoneIndex]) {
+                dropzones[currentDropzoneIndex].processQueue();
+              }
+            },
+            renameFile: function(file){
+              var name = file.name;
+              file.upload.filename = 'file_' + "<?= $id ?>" + '_' + name.toString();
+            },
+          }
+        <?php endforeach ?>
+
+        /**
+         * Handle docs status after all queued dropzones are finished uploading
+         */
+        global.updateDocumentsStatus = function(){
+          axios.get("<?= $this->url('documents', ['action' => 'get-user-required-documents']) ?>")
+            .then(function(res){
+              var data = res.data;
+
+              if (data.complete) {
+                return global.location.replace("<?= $this->url('usuario', ['action' => 'estatus']) ?>");
+              }
+
+              data.documents.forEach(function(doc, i){
+                dropzones[i].updateFileStatus(doc.status, doc);
+              });
+            })
+            .catch(function(error){
+              console.log(error);
+            });
+        }
+
+        /**
+         * Handle example hover
+         */
+        var docExample = document.querySelectorAll('.doc-example');
+        var docExampleModal = document.getElementById('doc-example-modal');
+        var docExamplePreview = docExampleModal.querySelector('.doc-example-preview');
+
+        docExample.forEach(function(el){
+          var img = document.createElement('img');
+          el.addEventListener('click', function(e){
+            var src = el.getAttribute('data-example-src');
+
+            img.src = src;
+
+            var docExampleImage = docExamplePreview.querySelector('img');
+
+            if (docExampleImage) {
+              docExampleImage.remove();
+            }
+
+            docExamplePreview.append(img);
+
+            docExampleModal.style.display = 'block';
+          });
+        });
+
+        global.closeExampleModal = function(btn){
+          docExampleModal.style.display = 'none';
+        }
+
+      })(window);
+    <?php $this->headScript()->captureEnd(); ?>
+  </script>
+<?php endif ?>

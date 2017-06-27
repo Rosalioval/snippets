@@ -1,0 +1,28 @@
+{
+    "aws": {
+        "region": "us-west-2",
+        "version": "latest",
+        "credentials": {
+            "key": "XXX",
+            "secret": "XXX"
+        }
+    },
+    "lambda": {
+        "imagesToPdf": {
+            "version": "$LATEST",
+            "name": "imagesToPdf"
+        },
+        "set_verification_docs": {
+            "version": "9",
+            "name": "set_verification_docs_DEV"
+        },
+        "mergePdfs": {
+            "version": "$LATEST",
+            "name": "mergePdfs"
+        },
+        "error": {
+            "version": "$LATEST",
+            "name": "error"
+        }
+    }
+}
