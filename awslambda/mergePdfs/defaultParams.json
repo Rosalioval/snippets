@@ -1,0 +1,22 @@
+{
+  "cmd": {
+    "name": "gs",
+    "params": [
+      "-sDEVICE=pdfwrite",
+      "-dCompatibilityLevel=1.4", "-dPDFSETTINGS=/default", 
+      "-dNOPAUSE",
+      "-dQUIET",
+      "-dBATCH",
+      "-dDetectDuplicateImages",
+      "-dCompressFonts=true",
+      "-r150" 
+    ],
+    "outFileCmd": "-sOutputFile=",
+    "outFileName": "result.pdf"
+  },
+  "upload": {
+    "Bucket": "konfiobucket",
+    "Key": "wp/testResult.pdf"
+  }
+}
+
