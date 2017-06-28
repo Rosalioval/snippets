@@ -1,0 +1,56 @@
+/*
+  EBM Global styles
+*/
+html {
+  font-size: 14px;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+body {
+  position: relative;
+}
+
+.site-wrapper,
+.site-content {
+  overflow-x: hidden;
+  position: relative;
+  min-height: 100vh;
+}
+
+.site-wrapper {
+  transition: transform 0.5s;
+  background-color: white;
+  z-index: 10;
+  &.site-wrapper--move {
+    transform: scale3d(0.7,0.7,1);
+  }
+}
+
+.site-content {
+  background-color: $gray-lightest;
+  padding: get-spacer(3, y) 0;
+}
+
+[v-cloak] { display:none; }
+
+/*
+  Media queries
+*/
+$xl-desktop: 1500px;
+$xxl-desktop: 1980px;
+@media #{$xs-only} {}
+@media #{$sm-only} {}
+@media #{$md-only} {}
+@media #{$lg-only} {}
+@media #{$sm-down} {
+  body {}
+}
+@media #{$md-down} {}
+@media #{$lg-down} {}
+@media #{$sm-up} {}
+@media #{$md-up} {}
+@media #{$lg-up} {}
+@media only screen and (min-width: $xl-desktop) {}
+@media only screen and (min-width: $xxl-desktop) {}
