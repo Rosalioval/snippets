@@ -2,6 +2,15 @@
   Bootstrap overrides
 */
 
+$breadcrumb-padding-y:          3px !default;
+$breadcrumb-padding-x:          2px !default;
+$breadcrumb-item-padding:       .5rem !default;
+
+$breadcrumb-bg:                 transparent !default;
+$breadcrumb-divider-color:      $gray-light !default;
+$breadcrumb-active-color:       $gray-light !default;
+$breadcrumb-divider:            "·" !default;
+
 .img-responsive {
   width: 100%;
 }

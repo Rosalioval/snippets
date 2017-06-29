@@ -1,0 +1,41 @@
+#logo-konfio-wrapper {
+  width: 120px;
+  height: auto;
+}
+#logo-konfio {
+  fill: $brand-info;
+}
+
+.header {
+  .header-left {
+    > div {
+      @include flex-row;
+    }
+  }
+}
+
+.logo-wrapper,
+.search-bar-wrapper {
+  @include flex-column-center;
+  min-height: $header-height-control;
+  margin-right: get-spacer(3, x) !important;
+}
+
+.logo-wrapper {}
+
+.search-bar-wrapper {
+  width: 100%;
+}
+
+#btn-search-trigger {
+  text-align: left;
+}
+
+.sub-header {
+  @extend .header;
+  .header-left,
+  .header-center,
+  .header-right {
+    height: 21px;
+  }
+}
