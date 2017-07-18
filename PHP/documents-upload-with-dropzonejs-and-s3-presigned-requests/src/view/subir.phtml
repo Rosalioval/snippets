@@ -559,6 +559,9 @@
             success: function(file, response){
               $dz<?= $id ?>.onComplete(file, response);
             },
+            successmultiple: function(files){
+              console.log(files);
+            },
             sendingmultiple: function(data, xhr, formData){
             },
             error: function(file, error, response){
